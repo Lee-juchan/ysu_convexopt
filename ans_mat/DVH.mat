@@ -1,0 +1,53 @@
+% test get_DVH_PTV
+clear all; close all; clc;
+load('data/hw2_prob2', 'A');
+load('x_opt.mat', 'x_opt');
+
+x = x_opt(1, :);
+
+
+%% get_DVH_PTV (prof)
+function [ DVH_PTV ] = get_DVH_PTV(PTV,x_beam)
+
+    PTV_dummy = PTV*x_beam(:);
+
+    x_ax= 0:0.1:100;
+
+    Dummy_t = hist(PTV_dummy,x_ax);
+    DVH_t = fliplr(cumsum(fliplr(Dummy_t)));
+    DVH_PTV = DVH_t/max(DVH_t);
+
+end
+
+
+%% process
+% histgram of PTV   (= differential DVH)
+dose = A*x(:);                      % x(:) -> flatten to 1xn row vector
+bins = [0:0.1:100];
+diff_DVH = hist(dose, bins);        % histogram() for matlab
+
+% DVH of dose        (= cumulative DVH)
+cum_DVH_1 = fliplr(diff_DVH);       % fliplr() -> inverse order (flip left-right)
+cum_DVH_2 = cumsum(cum_DVH_1);
+cum_DVH_3 = fliplr(cum_DVH_2);
+cum_DVH = cum_DVH_3/max(cum_DVH_3);
+
+plot(cum_DVH_1); hold on; plot(cum_DVH_2); hold off;
+plot(cum_DVH);
+
+
+%% get_DVH_PTV (mine)
+function [ cum_DVH ] = get_DVH_PTV(beam_kernel, beam_intensity)
+
+    % dose
+    dose = beam_kernel*beam_intensity(:);
+
+    % differential DVH
+    bins = [0:0.1:100];
+    diff_DVH = hist(dose, bins)
+
+    % cumulative DVH
+    cum_DVH_ = fliplr(cumsum(fliplr(diff_DVH)));
+    cum_DVH = cum_DVH_/max(cum_DVH_); % normalize
+
+end

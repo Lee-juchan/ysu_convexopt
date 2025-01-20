@@ -1,0 +1,191 @@
+% hw2-2 (2024/12/20, Juchan Lee)
+
+% load (A, d, d_up)
+clear all; close all; clc;
+load data/hw2_prob2.mat;
+
+[M, N] = size(A);
+
+% hyper param
+ALPHA = 0.01;
+BETA = 0.8;
+MAXITERS = 20000;
+CRIT = 10e-4;
+
+
+%%%%% without constraint %%%%%
+%% gradient desent method
+f_hist_gd = [];
+
+x = zeros(N, 1);
+
+for iter = 1:MAXITERS
+    iter
+
+    % f, grad
+    f = 1/2*norm(A*x - d)^2;
+    grad = A'*(A*x - d);
+
+    % search direction (delta_x)
+    delta_x = -grad;
+
+    % step size (t)
+    t = 1;
+    while (1/2*norm(A*(x + t*delta_x) - d)^2 > f + ALPHA*t*grad'*delta_x) % line search
+        t = BETA*t;
+    end
+
+    % update x (x_k+1 = x_k + t*delta_x)
+    x = x + t*delta_x;
+
+    % history
+    f_hist_gd(iter) = f;
+end
+
+f_opt1 = f % f^*
+x_opt_gd = x; % x^*
+
+
+
+%%%%% with constraint (Ax <= d_up) %%%%%
+%% gradient desent method + log-barrier
+f_hist_gdlb = [];
+
+x = zeros(N, 1);
+t_lb = 1; % log-barrier constant
+
+for iter = 1:MAXITERS
+    iter
+
+    % f, grad
+    f = t_lb/2*norm(A*x - d)^2 - sum(log(d_up - A*x))
+    grad = t_lb*A'*(A*x - d) + A'*(1./(d_up - A*x));
+    % hessian = t_lb*A'*A + A'*diag(1./(d_up - A*x).^2)*A;      
+    %   cond(hassian)   => Inf
+    %   inv(hessian)    => warning: matrix singular to machine precision
+    %   pinv()          => able 10 iteration 만에 해결가능
+
+    % search direction (delta_x)
+    delta_x = -grad;
+    % delta_x = -pinv(hessian)*grad;
+
+    % step size (t)
+    t = 1;
+    while (max(A*(x + t*delta_x)) >= d_up) % feasibility
+        t = BETA*t;
+    end
+
+    while (t_lb/2*norm(A*(x + t*delta_x) - d)^2 - sum(log(d_up - A*(x + t*delta_x))) > f + ALPHA*t*grad'*delta_x) % line search
+        t = BETA*t;
+    end
+
+    % update x (x_k+1 = x_k + t*delta_x)
+    x = x + t*delta_x;
+
+    % history
+    f_hist_gdlb(iter) = f;
+end
+
+f_opt_gdlb = f % f^*
+x_opt_gdlb = x; % x^*
+
+
+
+%% (add) gradient desent method + log-barrier (+ t_lb iteration)
+f_hist_gdlb2 = [];
+
+x = zeros(N, 1);
+t_lbs = linspace(1,10,1); % log-barrier constants
+
+for iter_t = 1:length(t_lbs)
+    t_lb = t_lbs(iter_t)
+
+    for iter = 1:MAXITERS/length(t_lbs)
+        iter
+
+        % f, grad
+        f = t_lb/2*norm(A*x - d)^2 - sum(log(d_up - A*x));
+        grad = t_lb*A'*(A*x - d) + A'*(1./(d_up - A*x));
+
+        % search direction (delta_x)
+        delta_x = -grad;
+
+        % step size (t)
+        t = 1;
+        while (max(A*(x + t*delta_x)) > d_up) % feasibility
+            t = BETA*t;
+        end
+
+        while (t_lb/2*norm(A*(x + t*delta_x) - d)^2 - sum(log(d_up - A*(x + t*delta_x))) > f + ALPHA*t*grad'*delta_x) % line search
+            t = BETA*t;
+        end
+
+        % update x (x_k+1 = x_k + t*delta_x)
+        x = x + t*delta_x;
+
+        % history
+        f_hist_gdlb2(iter + (iter_t - 1)*(MAXITERS/length(t_lbs))) = f;
+    end
+end
+
+f_opt_gdlb2 = f % f^*
+x_opt_gdlb2 = x; % x^*
+
+
+% save/load variables
+% save data/hw2_2_opt.mat, x_opt_gd, x_opt_gdlb, x_opt_gdlb2, f_hist_gd, f_hist_gdlb, f_hist_gdlb2, f_opt_gd, f_opt_gdlb, f_opt_gdlb2;
+load opt/hw2_prob2.mat; load opt/hw2_2_opt.mat;
+
+
+
+%%% DVH %%%
+dvh_gd = get_DVH_PTV(A, x_opt_gd);
+dvh_gdlb = get_DVH_PTV(A, x_opt_gdlb);
+% dvh_gdlb2 = get_DVH_PTV(A, x_opt_gdlb2);
+
+
+
+%%% plot %%%
+% f_hist
+figure(1);
+semilogy(f_hist_gd - f_hist_gd(end));
+xlabel('Iter');
+ylabel('f(x^{(k)}) - f(x^*)');
+title('without constraint');
+set(gca, "fontsize", 13);
+
+figure(2);
+semilogy(f_hist_gdlb - f_hist_gdlb(end));
+xlabel('Iter');
+ylabel('f(x^{(k)}) - f(x^*)');
+title('with constraint (log-barrier)');
+set(gca, "fontsize", 13);
+
+% figure(3);
+% semilogy(f_hist_gdlb2 - f_hist_gdlb2(end));
+% xlabel('Iter');
+% ylabel('f(x^{(k)}) - f(x^*)');
+% title('with constraint (log-barrier + iter)');
+% set(gca, "fontsize", 13);
+
+% DVH
+figure(4);
+plot(dvh_gd); hold on;
+plot(dvh_gdlb);
+line([620, 620], [0, 1]); hold off;
+legend({'without constraint', 'with constraint (d <= 62Gy)', 'd = 62Gy'});
+xlabel('Dose (0.001 Gy)');
+ylabel('Volume');
+title('DVH (Dose Volume Histogram)');
+set(gca, "fontsize", 13);
+
+% figure(5);
+% plot(dvh_gd); hold on;
+% plot(dvh_gdlb);
+% plot(dvh_gdlb2);
+% line([620, 620], [0, 1]); hold off;
+% legend({'without constraint', 'with constraint (d <= 62Gy)', 'with constraint (d <= 62Gy) + iter t_{log-barrier}', 'd = 62Gy'}, 'Location', 'southwest');
+% xlabel('Dose (0.1 Gy)');
+% ylabel('Volume');
+% title('DVH (Dose Volume Histogram)');
+% set(gca, "fontsize", 13);

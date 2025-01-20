@@ -1,0 +1,154 @@
+%%% DVH constraint %%%
+
+% pkg load symbolic;  % load H
+
+% load (A, d, D_max)
+clear all; close all; clc;
+load data/hw2_prob2;
+
+[M, N] = size(A);
+
+H = @(u) double(u >= 0);
+DD = @(u) double(abs(u) < eps) / eps;
+
+% hyper param
+ALPHA = 0.01;
+BETA = 0.8;
+MAXITERS = 1000;
+
+% DVH constraints
+D_max = 63;
+D_min = 59;
+w = 1;
+
+
+%% gradient desent method + DVH constraint
+f_hist_dvh = [];
+t_hist_dvh = [];
+
+x = zeros(N, 1);
+
+for iter = 1:MAXITERS
+    iter
+
+    % f, grad
+    d_k = A*x;
+    f = sum(w*H(d_k - D_max).*(d_k - D_max).^2 + H(D_min - d_k).*(D_min - d_k).^2);
+    grad = w*A'*((d_k - D_max).*(DD(d_k - D_max).*(d_k - D_max) + 2*H(d_k - D_max))) ...
+        - A'*((D_min - d_k).*(-DD(D_min - d_k).*(D_min - d_k) + 2*H(D_min - d_k)));
+
+    % search direction (delta_x)
+    delta_x = -grad;
+
+    % step size (t)
+    t = 1;
+    % while (max(A*(x + t*delta_x)) >= D_max) || (min(A*(x + t*delta_x)) < D_min) % feasibility
+    %     t = BETA*t;
+    % end
+
+    while true
+        d_kp = A*(x + t*delta_x);
+        f_kp = sum(w*H(d_kp - D_max).*(d_kp - D_max).^2 + H(D_min - d_kp).*(D_min - d_kp).^2);
+        if (f_kp <= f + ALPHA*t*grad'*delta_x)  % line search
+            break;
+        end
+        t = BETA*t;
+    end
+
+    % update x (x_k+1 = x_k + t*delta_x)
+    x = x + t*delta_x;
+
+    % history
+    f_hist_dvh(iter) = f;
+    t_hist_dvh(iter) = t;
+end
+
+f_opt_dvh = f % f^*
+x_opt_dvh = x; % x^*
+
+
+
+% %% (add) gradient desent method + log-barrier
+% f_hist_lb = [];
+% t_hist_lb = [];
+
+% x = zeros(N, 1);
+% t_lb = 1; % log-barrier constant
+% tic
+% for iter = 1:MAXITERS
+%     iter
+
+%     % f, grad
+%     f = t_lb/2*norm(A*x - d)^2 - sum(log(D_max - A*x)) - sum(log(A*x - D_min));
+%     grad = t_lb*A'*(A*x - d) + A'*(1./(D_max - A*x)) - A'*(1./(A*x - D_min));
+
+%     % search direction (delta_x)
+%     delta_x = -grad;
+
+%     % step size (t)
+%     t = 1;
+%     % while (max(A*(x + t*delta_x)) >= D_max) || (min(A*(x + t*delta_x)) < D_min) % feasibility
+%     %     t = BETA*t;
+%     % end
+
+%     while (t_lb/2*norm(A*(x + t*delta_x) - d)^2 - sum(log(D_max - A*(x + t*delta_x))) > f + ALPHA*t*grad'*delta_x) % line search
+%         t = BETA*t;
+%     end
+
+%     % update x (x_k+1 = x_k + t*delta_x)
+%     x = x + t*delta_x;
+
+%     % history
+%     f_hist_lb(iter) = f;
+%     t_hist_lb(iter) = t;
+% end
+% toc
+% f_opt_lb = f % f^*
+% x_opt_lb = x; % x^*
+
+% save data/hw2_3_opt.mat x_opt_dvh x_opt_lb f_hist_dvh f_hist_lb;
+% save data/hw2_3_opt.mat x_opt_dvh f_hist_dvh;
+% load data/hw2_prob2; load data/hw2_3_opt;
+
+
+
+%%% DVH %%%
+dvh_dvh = get_DVH_PTV(A, x_opt_dvh);
+% dvh_lb = get_DVH_PTV(A, x_opt_lb);
+
+
+
+%%% plot %%%
+% DVH
+figure(1);
+semilogy(f_hist_dvh - f_hist_dvh(end));
+xlabel('Iter');
+ylabel('f(x^{(k)}) - f(x^*)');
+title('DVH constraint (w=1)');
+set(gca, "fontsize", 13);
+
+figure(2);
+plot(dvh_dvh); hold on;
+line([59/binwidth, 60/binwidth], [0, 100]);
+line([63/binwidth, 63/binwidth], [0, 100]); hold off;
+legend({'DVH constraint (D_{min} <= d < D_{max})', 'x = D_{min}', 'x = D_{max}'}, 'Location', 'southwest');
+xlabel('Dose (0.1 Gy)');
+ylabel('Volume');
+title('DVH constraint (w=1)');
+set(gca, "fontsize", 13);
+
+
+% log-barrier
+% figure(3);
+% semilogy(f_hist_lb - f_opt_lb);
+% xlabel('Iter');
+% ylabel('f(x^{(k)}) - f(x^*)');
+% set(gca, "fontsize", 13);
+
+% figure(4);
+% plot(dvh_lb); hold on;
+% line([60/binwidth, 60/binwidth], [0, 1]);
+% line([63/binwidth, 63/binwidth], [0, 1]); hold off;
+% xlabel('Dose (Gy)');
+% ylabel('Volume'); title('log-barrier');
+% set(gca, "fontsize", 13);

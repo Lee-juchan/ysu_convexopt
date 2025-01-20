@@ -1,0 +1,68 @@
+% hw1 (2024/12/01, Juchan Lee)
+
+% load (N, T, k, m, n)
+clear all; close all; clc;
+load data/hw1_prob1.mat;
+
+
+%% 1) Ax = b
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Equation (T_hat)
+% T_hat = ɑ * k^β * m^γ * n^δ
+
+% log(T_hat) = log(ɑ) + β*log(k) * γ*log(m) * δ*log(n)
+% t_hat = ɑ_hat + β*k_hat + γ*m_hat + δ*n_hat               (log(T_hat) = t_hat)
+
+
+%% Linear Equation (Ax = t_hat)
+% A = [ones(N,1), k_hat, m_hat, n_hat]      (Nx4)
+% x = [ɑ_hat, β, γ, δ]                      (4x1)
+% t_hat = A*x
+
+
+%% cost function (J)
+% J = (log(T_hat / T))^2 = {t_hat - t}^2 = (t_hat - t)'*(t_hat - t)
+%   = x'*A'*A*x - 2*x'*A'*t + t'*t
+
+% grad_J = 2*A'*A*x - 2*A'*t = 0
+% x = inv(A'*A)*A'*t
+
+
+%% solution
+% x_min = inv(A'*A)*A'*t      = [ɑ_hat, β, γ, δ]
+
+% ɑ = exp(x(1))
+% β = x(2)
+% γ = x(3)
+% δ = x(4)
+
+% J_min = x_min'*A'*A*x_min - 2*x_min'*A'*t + t'*t
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%% 2) solution
+
+% x (minimize J)
+t = log(T);
+A = [ones(N, 1), log(k), log(m), log(n)];
+
+x = inv(A'*A) * A'*t;
+
+% J
+J = x'*A'*A*x - 2*x'*A'*t + t'*t
+
+% ɑ, β, γ, δ
+alpha = exp(x(1))
+beta = x(2)
+gamma = x(3)
+delta = x(4)
+
+
+% result
+% a = 9.3364e-15
+% b = 3.1062
+% g = 1.0943
+% d = 2.1078
+
+% J = 0.3392

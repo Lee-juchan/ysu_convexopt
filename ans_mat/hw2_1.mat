@@ -1,0 +1,130 @@
+% hw2-1 (2024/12/19, Juchan Lee)
+
+% load (A)
+clear all; close all; clc;
+load data/hw2_prob1.mat;
+
+[M, N] = size(A)
+
+% hyper param
+ALPHA = 0.01;
+BETA = 0.5;
+MAXITERS = 2000;
+CRIT = 10e-3;
+
+
+%%% gradient desent method %%%
+f_hist_gd = [];
+t_hist_gd = [];
+
+x = zeros(N, 1); % x_0
+
+for iter = 1:MAXITERS;
+    iter
+
+    % f, gradient
+    f = -sum(log(1 - A*x)) - sum(log(1 - x));
+    grad = A'*(1./(1 - A*x)) + 1./(1 - x);
+
+    if (norm(grad) < CRIT); % stop condition
+        break;
+    end
+
+    % search direction (delta_x)
+    delta_x = -grad;
+
+    % step size (t)
+    t = 1;
+    while (max(A*(x + t*delta_x)) >= 1) || (max(x + t*delta_x) >= 1) % feasibility check
+        t = BETA*t;
+    end
+
+    while (-sum(log(1 - A*(x + t*delta_x))) - sum(log(1 - (x + t*delta_x))) > f + ALPHA*t*grad'*delta_x) % line search
+        t = BETA*t;
+    end
+
+    % update x (x_k+1 = x_k + t*delta_x)
+    x = x + t*delta_x;
+
+    % history
+    f_hist_gd(iter) = f;
+    t_hist_gd(iter) = t;
+end
+
+f_opt_gd = f  % f^*
+
+
+
+%%% Newton's method %%%
+f_hist_nt = [];
+t_hist_nt = [];
+
+x = zeros(N, 1); % x_0
+
+for iter = 1:MAXITERS;
+    iter
+
+    % f, gradient, hessian
+    f = -sum(log(1 - A*x)) - sum(log(1 - x));
+    grad = A'*(1./(1 - A*x)) + 1./(1 - x);
+    hessian = A'*diag(1./(1 - A*x).^2)*A + diag(1./(1 - x).^2);
+
+    if (norm(grad) < CRIT); % stop condition
+        break;
+    end
+
+    % search direction (delta_x)
+    delta_x = - inv(hessian)*grad;
+
+    % step size (t)
+    t = 1;
+    while (max(A*(x + t*delta_x)) >= 1) || (max(x + t*delta_x) >= 1) % feasibility check
+        t = BETA*t;
+    end
+
+    while (-sum(log(1 - A*(x + t*delta_x))) - sum(log(1 - (x + t*delta_x))) > f + ALPHA*t*grad'*delta_x) % line search
+        t = BETA*t;
+    end
+
+    % update (x_k+1 = x_k + t*delta_x)
+    x = x + t*delta_x;
+
+    % history
+    f_hist_nt(iter) = f;
+    t_hist_nt(iter) = t;
+end
+
+f_opt_nt = f  % f^*
+
+
+
+%%% plot %%%
+% gredient desent method
+figure(1); 
+semilogy(f_hist_gd - f_opt_gd);
+xlabel('Iter');
+ylabel('f(x^{(k)}) - f(x^*)');
+title('gredient desent method');
+set(gca, "fontsize", 13);
+
+figure(2);
+plot(t_hist_gd);
+xlabel('Iter');
+ylabel('t^{(k)}');
+title('gredient desent method');
+set(gca, "fontsize", 13);
+
+% newton's method
+figure(3);
+semilogy(f_hist_nt - f_opt_nt);
+xlabel('Iter');
+ylabel('f(x^{(k)}) - f(x^*)');
+title('Newtons method');
+set(gca, "fontsize", 13);
+
+figure(4);
+plot(t_hist_nt); 
+xlabel('Iter');
+ylabel('t^{(k)}');
+title('Newtons method');
+set(gca, "fontsize", 13);

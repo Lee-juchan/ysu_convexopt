@@ -1,0 +1,73 @@
+clear all; close all; clc
+load data/hw1_prob2.mat
+
+% err_x = []
+
+%% Solve x with Low-rank approximation + Least-Squares
+[u s v]= svd(A);
+invs= inv(s);
+
+for ii=1:50
+
+    % --- Low-rank approximation
+    cutoff=ii;
+    u_p= u(:,1:cutoff);
+    v_p= v(:,1:cutoff);
+    invs_p= invs(1:cutoff, 1:cutoff);
+
+    % --- Least-Squares
+    Ahat= v_p*invs_p*u_p';
+    xhat= Ahat*y;
+
+    % --- Record error between the reconstructed and original x's
+    err_x(ii)= norm(x-xhat);
+
+    % figure(); plot(x); hold on; plot(xhat,'r'); hold off
+end
+
+figure(); plot(err_x); title('norm(x recon - x) depending on r low-rank approximation')
+
+%% Plot the optimal result with the original signal
+opt_cutoff= find(err_x==min(err_x))
+
+% --- Low-rank approximation
+u_p= u(:,1:opt_cutoff);
+v_p= v(:,1:opt_cutoff);
+invs_p= invs(1:opt_cutoff, 1:opt_cutoff);
+
+% --- Least-Squares
+Ahat= v_p*invs_p*u_p';
+xhat= Ahat*y;
+
+figure(); plot(x,'b'); hold on; plot(xhat,'r'); hold off;
+legend('original x','optimal x');
+
+
+%% Solve x with Tychonov Regularization + Least-Squares
+mu= [0.001:0.001:0.1];
+
+for jj=1:length(mu)
+
+% mu=0.1;
+    % --- Least-Squares
+    Ahat= inv(A'*A+mu(jj)*eye(200))*A';
+    xhat= Ahat*y;
+
+    % --- Record error between the reconstructed and original x's
+    err_x2(jj)= norm(x-xhat);
+
+    % figure(); plot(x); hold on; plot(xhat,'r'); hold off
+end
+
+figure(); plot(mu,err_x2); title('norm(x recon - x) with different mu for regularization')
+
+%% Plot the optimal result with the original signal
+ind= find(err_x2==min(err_x2));
+opt_mu= mu(ind)
+
+% --- Least-Squares
+Ahat2= inv(A'*A + opt_mu*eye(200))*A';
+xhat2= Ahat2*y;
+
+figure(); plot(x,'b'); hold on; plot(xhat2,'r'); hold off;
+legend('original x','optimal x');

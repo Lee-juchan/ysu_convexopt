@@ -1,0 +1,97 @@
+clear all; close all; clc;
+load data/hw2_prob2
+
+alpha= 0.01;
+beta= 0.8;
+
+[ m n ]= size(A);
+x= zeros(n,1);
+MaxIters=100;
+
+%% With No Constraint
+for iter=1:MaxIters;
+    iter
+
+    %----- Update values of f, gradient of f (grad
+    f= 0.5*norm(A*x-d)^2;
+    hist_f(iter)=f;
+
+    grad= A'*(A*x-d);
+    delta_x= -grad;
+
+    %----- Step Size
+    t=1;
+    while 0.5*norm(A*(x+t*delta_x)-d)^2 > (f + alpha*t*grad'*delta_x)
+        t= beta*t;
+    end
+    
+    x= x+t*delta_x;
+end
+x0= x;
+
+
+%% With In-equality Constraint (Log Barrier Optimization)
+tt = 1;  % log-barrier param
+hist_x_ip = zeros(n, MaxIters);
+
+x= zeros(n,1);
+
+for iter=1:MaxIters;
+    iter
+    
+    %----- Update values of f, gradient of f (grad)
+    f= 0.5*norm(A*x-d)^2 + (-sum(log(d_up-A*x)))/tt;
+    hist_f(iter)=f;
+    
+    grad_phi= zeros(n,1);
+    grad_phi2= zeros(n,1);
+    hessian_phi= zeros(n,n);
+    
+    for ii=1:m
+        grad_phi= grad_phi + A(ii,:)'/(d_up(ii)-A*x);
+    end
+    grad= A'*(A*x-d) + grad_phi/tt;
+    delta_x= -grad;
+    
+    %----- Step Size
+    t=1;
+    % Check feasibility of x
+    while min(d_up-A*(x+t*delta_x)) <= 0;
+        t= beta*t;
+    end
+    while 0.5*norm(A*(x+t*delta_x)-d)^2 + (-sum(log(d_up-A*(x+t*delta_x))))/tt > (f + alpha*t*grad'*delta_x)
+        t= beta*t;
+    end
+    hist_t(iter)=t;
+    hist_x_ip(:, iter) = x;
+
+    x= x+t*delta_x;
+end
+x_ip= x;
+
+
+%% Compare DVHs
+function [ DVH_PTV ] = get_DVH_PTV(PTV,x_beam)
+
+    PTV_dummy = PTV*x_beam(:);
+
+    x_ax= 0:0.1:100;
+
+    Dummy_t = hist(PTV_dummy,x_ax);
+    DVH_t = fliplr(cumsum(fliplr(Dummy_t)));
+    DVH_PTV = DVH_t/max(DVH_t);
+
+    % if sig==1
+    %     figure(1);
+    %     plot(x_perc,DVH_t); hold on;
+    %     xlim([0 100])
+    %     grid on; hold off;
+    %     legend('PTV') %'OAR5'); %,'OAR6'); %,'Tuning');
+
+end
+
+
+[DVH_0 ]=get_DVH_PTV(A,x0);
+[DVH_ip ]=get_DVH_PTV(A,hist_x_ip(:,2));
+figure(); plot(DVH_0); hold on; plot(DVH_ip); hold off;
+legend('Unconstrained','Inequality Constrained');

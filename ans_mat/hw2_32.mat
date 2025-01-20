@@ -1,0 +1,113 @@
+%%% DVH constraint %%%
+
+% load (A, d, d_up)
+clear all; close all; clc;
+load data/hw2_prob2;
+
+[M, N] = size(A);
+
+% hyper param
+ALPHA = 0.01;
+BETA = 0.9;
+MAXITERS = 1000000;
+
+% constraints
+D_max = 63;
+D_min = 59;
+D_95 = 60;
+
+
+%% gradient desent method + min-max/DVH constraint
+f_hist = [];
+t_hist = [];
+c_hist = [];
+
+x = zeros(N, 1);
+% load x_opt;
+% x = x_opt;
+
+for iter = 1:MAXITERS
+
+    % f, grad
+    d_k = A*x;
+    con_max = max(0, d_k - D_max);
+    con_min = max(0, D_min - d_k);
+    con_dvh = max(0, D_95 - d_k);
+
+    d_95_k = sort(d_k)(int16(0.05*M));
+    cond_dvh = (D_95 - d_95_k > 0);
+
+    % f = sum(con_min.^2 + con_max.^2);
+    % grad = A' * (2*con_max - 2*con_min);
+    f = sum(con_min.^2 + con_max.^2 + cond_dvh*con_dvh.^2);
+    grad = 2*A'*(con_max - con_min - cond_dvh*con_dvh); % A' * (2*con_max.*(con_max > 0) - 2*con_min.*(con_min > 0) - 2*cond_dvh*con_dvh.*(con_dvh >= 0));
+
+    % search direction (delta_x)
+    delta_x = -grad;
+
+    % step size (t)
+    t = 1;
+    % while (max(A*(x + t*delta_x)) >= D_max) || (min(A*(x + t*delta_x)) < D_min) % feasibility
+    %     t = BETA*t;
+    % end
+
+    while true
+        x_kp = x + t*delta_x;
+        d_kp = A*x_kp;
+
+        con_max_kp = max(0, d_kp - D_max);
+        con_min_kp = max(0, D_min - d_kp);
+        con_dvh_kp = max(0, D_95 - d_kp);
+        cond_dvh_kp = (sort(d_kp)(int16(0.05*M)) < D_95); % Dose of 95% Volume upper than 60Gy <=> Dose of bottom 5%-th Volume upper than 60Gy
+        
+        % f_kp = sum(con_min_kp.^2 + con_max_kp.^2);
+        f_kp = sum(con_min_kp.^2 + con_max_kp.^2 + cond_dvh*con_dvh_kp.^2);
+        if f_kp <= f + ALPHA*t*grad'*delta_x
+            break;
+        end
+        t = BETA*t;
+    end
+
+    % update x (x_k+1 = x_k + t*delta_x)
+    x = x_kp;
+
+    % history
+    f_hist(iter) = f;
+    t_hist(iter) = t;
+    c_hist(iter) = cond_dvh;
+
+    fprintf('iter=%5d f=%.4f t=%.2f\n', iter, f, t);
+end
+
+f_opt = f % f^*
+x_opt = x; % x^*
+
+% load data/hw2_prob2; load data/hw2_3_opt;
+% save x_opt.mat x_opt;
+% load x_opt_M.mat;
+
+plot(c_hist);
+
+%%% plot %%%
+binwh = 0.1;
+dvh = get_DVH_PTV(A, x_opt, binwh);
+
+figure(1);
+semilogy(f_hist - f_hist(end)); % plot(f_hist - f_hist(end));
+xlabel('Iter');
+ylabel('f(x^{(k)}) - f(x^*)');
+title('DVH constraint');
+set(gca, "fontsize", 13);
+
+figure(2);
+plot(dvh); hold on;
+line([59/binwh, 59/binwh], [0, 1], 'linestyle', '--');
+line([63/binwh, 63/binwh], [0, 1], 'linestyle', '--'); hold off;
+xlim([40/binwh, 80/binwh]);
+yticks([0:0.1:1]);
+xticks([40/binwh:5/binwh:80/binwh]);
+legend({'DVH', 'D_{min}', 'D_{max}'});
+xlabel('Dose (0.1 Gy)');
+ylabel('Volume');
+title('DVH constraint');
+set(gca, "fontsize", 13);

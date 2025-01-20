@@ -1,0 +1,111 @@
+% hw2 (2024/12/01, Juchan Lee)
+
+% solving x (when J_min)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Equation (y)
+% y_hat = Ax + w
+% y = Ax
+
+%% Linear Equation (Ax = b)
+% b = y_hat
+% A*x = b
+
+
+%% inverse A
+% x = inv(A)*b
+
+%% least-squre
+% x = inv(A'*A)*A'*b
+
+%% reduced SVD (least-norm)
+% [U, S, V] = svd(A)
+% x = V(:,1:r) * pinv(S(1:r,1:r)) * U(:,1:r)' * b
+
+%% tychonov regularization (least-norm)
+% x = inv(A'*A + mu*I)*A'*b
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% load (A, w, x, y, y_orig)
+clear all; close all; clc;
+load data/hw1_prob2
+
+b = y   % b = y - w
+
+
+%%% inverse, least-square %%%
+
+% inverse
+x_inv = inv(A)*b;
+
+plot(x); hold on;
+plot(x_inv); legend({'x_{orig}', 'x = A^{-1}b'}); hold off;
+
+% least-sqaure (psuedo-inverse)
+x_ls = pinv(A)*b;   % inv(A'*A)*A'*b
+
+plot(x); hold on;
+plot(x_ls); legend({'x_{orig}', 'x = (A^TA)^{-1}A^Tb'}); hold off;
+
+
+%% SVD %%%
+[U, S, V] = svd(A);
+
+% plot SVD
+plot(diag(S)); legend({'\Sigma'});                      % plot S
+plot(V(:,1:4)); legend({'v_1', 'v_2', 'v_3', 'v_4',});  % plot V
+plot(U(:,1:4)); legend({'u_1', 'u_2', 'u_3', 'u_4',});  % plot U
+
+plot(A(:,[30, 100, 170])); legend({'a_1', 'a_2', 'a_3'});      % col of A -> 각각 커널함수(스무딩) 적용
+plot(A([30, 100, 170],:)'); legend({'a_1', 'a_2', 'a_3'});     % row of A
+
+
+% SVD approximation, r (minimize J)
+norms = [];
+
+for r = 1:50
+    x_svd = V(:,1:r) * pinv(S(1:r,1:r)) * U(:,1:r)' * b;
+    norms(r) = norm(x_svd - x);
+end
+
+idx = find(norms == min(norms)); % r = 28
+
+% plot norms (=J_r)
+plot(1:50, norms); hold on;
+line([idx, idx], [0, norms(idx)]); legend({'J_{r=(1~50)} = ||x_{hat} - x||^2', 'J_{r=28}'}); hold off;
+
+% plot x_hat (r=28)
+r = 28;
+x_svd = V(:,1:r) * pinv(S(1:r,1:r)) * U(:,1:r)' * b;  % SVD (low rank approximation)
+plot(x); hold on;
+plot(x_svd); legend({'x_{orig}', 'x = V\Sigma^{-1}U^Tb    (if, r=28)'}); hold off
+
+
+%%% tychonov regularization %%%
+
+% mu (when J is minimized)
+I = eye(200);
+
+mus = linspace(0.01, 0.05, 1000);
+norms = [];
+for i=1:length(mus)
+    mu = mus(i);
+    x_ty = inv(A'*A + mu*I)*A'*b;
+    norms(i) = norm(x_ty - x)^2 + mu * norm(x_ty)^2;
+end
+
+idx = find(norms == min(norms));
+v = mus(idx); % mu = 0.015215
+
+% plot norms (J_mu)
+plot(mus, norms); hold on;
+line([v, v], [0, norms(idx)], 'linestyle', '-'); legend({'J_{\mu=(1e^{-2} ~ 5e^{-2})} = ||Ax_{hat} - b||^2 + ||x_{hat}||^2', 'J_{\mu=0.015215}'}); hold off;  % plot norms
+
+%  plot x_hat (mu=0.0015215)
+mu = 0.015215;
+x_ty = inv(A'*A + mu*I)*A'*b;   % tychonov regularization
+plot(x); hold on;
+plot(x_ty); legend({'x_{orig}', 'x = (A^TA + \muI)A^Tb    (if, \mu=0.015215)'}); hold off;
+
+% mu test
+% mu = 0.015215; x_ty = inv(A'*A + mu*I)*A'*b; n1 = norm(x_ty-x)^2 + mu*norm(x_ty)^2
+% mu = 0.015205; x_ty = inv(A'*A + mu*I)*A'*b; n2 = norm(x_ty-x)^2 + mu*norm(x_ty)^2
